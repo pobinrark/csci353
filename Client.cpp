@@ -1,64 +1,78 @@
-#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <netdb.h>
+#include <netdb.h> 
+#include <iostream>
 
 using namespace std;
 
-int main()
+void error(const char *msg)
 {
-	int client;
-	int port;
-	int buffsize = 1024;
-	char buffer[buffsize];
-	char* ip = "127.0.0.1";
-	sockaddr_in server_addr;
-	bool isExit;
+    perror(msg);
+    exit(0);
+}
 
-	client = socket(AF_INET, SOCK_DGRAM, 0);
-	if(client < 0)
-	{
-		cout << "Error creating socket" << endl;
-		exit(1);
-	}
+int main(int argc, char *argv[])
+{
+    int sockfd, portno, n;
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
 
-	cout << "Socket has been created" << endl;
-
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(port);
-
-	if(connect(client,(sockaddr*)&server_addr, sizeof(server_addr)) < 0)
-	{
-		cout << "Connection error" << endl;
-	}
-
-	cout << "Connection success, connected to port: " << port << endl;
-	cout << "Type EXIT to quit" << endl;
-
-	while(isExit)
-	{
-		cout << "register: ";
-		cin >> buffer;
-		send(client, buffer, buffsize, 0);
-		if(*buffer == 'EXIT')
-		{
-			isExit = false;
-			break;
-		}
-		recv(client, buffer, buffsize, 0);
-		cout << "welcome: " << buffer << endl;
-	}
-
-	cout << "Connection ended" << endl;
-	close(client);
-
-
-
-
-	return 0;
+    char buffer[256];
+    if (argc < 3) {
+       fprintf(stderr,"usage %s hostname port\n", argv[0]);
+       exit(0);
+    }
+    portno = atoi(argv[2]);
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) 
+        error("ERROR opening socket");
+    server = gethostbyname(argv[1]);
+    if (server == NULL) {
+        fprintf(stderr,"ERROR, no such host\n");
+        exit(0);
+    }
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, 
+         (char *)&serv_addr.sin_addr.s_addr,
+         server->h_length);
+    serv_addr.sin_port = htons(portno);
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
+        error("ERROR connecting");
+    
+    /*n = write(sockfd,buffer,strlen(buffer));
+    if (n < 0) 
+         error("ERROR writing to socket");
+    bzero(buffer,256);
+    n = read(sockfd,buffer,255);
+    if (n < 0) 
+         error("ERROR reading from socket");
+    printf("%s\n",buffer);*/
+    string test;
+    char key[] = "EXIT";
+    char exitCommand[] = "Client has disconnected";
+    while(true)
+    {
+        cout << "register: ";
+        cin >> buffer;
+        cout << "String compare " << strcmp(buffer, key) << endl;
+        if(strcmp(buffer, key) == 0)
+        {
+        	cout << "Exiting" << endl;
+        	send(sockfd, exitCommand, strlen(exitCommand), 0);
+        	break;
+        }
+        send(sockfd, buffer, strlen(buffer), 0);
+        recv(sockfd, buffer, 255, 0);
+        cout << "welcome: " << buffer << endl;
+        
+        
+    }
+    close(sockfd);
+    return 0;
 }

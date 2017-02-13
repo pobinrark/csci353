@@ -1,88 +1,82 @@
-#include <iostream>
+/* A simple server in the internet domain using TCP
+   The port number is passed as an argument */
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <iostream>
 
 using namespace std;
 
-int main()
+void error(const char *msg)
 {
-	int client, server;
-	int port = 1600;
-	int buffsize = 1024;
-	char buffer[buffsize];
-	bool isExit;
+    perror(msg);
+    exit(1);
+}
 
-	sockaddr_in server_addr;
-	socklen_t size;
-
-	//initialize socket;
-
-	client = socket(AF_INET, SOCK_DGRAM, 0);
-
-	if(client < 0)
-	{
-		cout << "Error establishing connection" << endl;
-		exit(1);
-	}
-	cout << client << endl;
-	cout << "Connection made!" << endl;
-
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = htons(INADDR_ANY);
-	server_addr.sin_port = htons(port);
-
-	if(bind(client, (sockaddr*)&server_addr, sizeof(server_addr)) < 0)
-	{
-		cout << "Error binding socket" << endl;
-		exit(1);
-	}	
-
-	size = sizeof(server_addr);
-	cout << "Looking for clients" << endl;
-
-	//listening for client
-	listen(client, 1);
-
-	//accept client
-	server = accept(client, (sockaddr*)&server_addr, &size);
-	if(server < 0)
-	{
-		cout << "Error connecting to client" << endl;
-		exit(1);
-	}
-
-	//connection made
-	while(server > 0)
-	{
-		send(server, "Connection made with server", buffsize, 0);
-		cout << "Connection made with client" << endl;
-		cout << "Type 'EXIT' to close connection" << endl;
-		
-		//chatting part
-		while(isExit)
-		{
-			cin >> buffer;
-			if(*buffer == 'EXIT')
-			{
-				isExit = false;
-				break;
-			}
-			cout << "welcome ";
-			send(server, buffer, buffsize, 0);
-			recv(server, buffer, buffsize, 0);
-			cout << "register " << buffer << endl;
-
-		}
-		cout << "Closing connection" << endl;
-		inet_ntoa(server_addr.sin_addr);
-		close(server);
-		exit(1);
-	}
-	close(client);
-	return 0;
+int main(int argc, char *argv[])
+{
+     int sockfd, newsockfd, portno;
+     bool isExit = true;
+     socklen_t clilen;
+     char buffer[256];
+     struct sockaddr_in serv_addr, cli_addr;
+     int n;
+     if (argc < 2) {
+         fprintf(stderr,"ERROR, no port provided\n");
+         exit(1);
+     }
+     sockfd = socket(AF_INET, SOCK_STREAM, 0);
+     if (sockfd < 0) 
+        error("ERROR opening socket");
+     bzero((char *) &serv_addr, sizeof(serv_addr));
+     portno = atoi(argv[1]);
+     serv_addr.sin_family = AF_INET;
+     serv_addr.sin_addr.s_addr = INADDR_ANY;
+     serv_addr.sin_port = htons(portno);
+     if (bind(sockfd, (struct sockaddr *) &serv_addr,
+              sizeof(serv_addr)) < 0) 
+              error("ERROR on binding");
+     listen(sockfd,5);
+     clilen = sizeof(cli_addr);
+     newsockfd = accept(sockfd, 
+                 (struct sockaddr *) &cli_addr, 
+                 &clilen);
+     if (newsockfd < 0) 
+          error("ERROR on accept");
+     bzero(buffer,256);
+    cout << "Connection made with client" << endl;
+    cout << "Type 'EXIT' to close connection" << endl;
+    char key[] = "EXIT";
+    char exitMsg[] = "Server has disconnected";
+    while(true)
+    {
+        //send(newsockfd, "Server: Connection made with server", 256, 0);
+        bzero(buffer, 256);
+        
+        //chatting part
+        recv(newsockfd, buffer, 255, 0);
+        cout << "register: " << buffer << endl;
+        cout << "welcome: ";
+        cin >> buffer;
+        if(strcmp(buffer, key) == 0)
+        {
+        	cout << "Exiting" << endl;
+        	send(newsockfd, exitMsg, strlen(exitMsg), 0);
+        	break;
+        }
+        send(newsockfd, buffer, 255, 0);
+        cout << endl;
+        
+        //cout << "Closing connection" << endl;
+        //inet_ntoa(serv_addr.sin_addr);
+        //exit(1);
+    }
+     close(newsockfd);
+     close(sockfd);
+     return 0; 
 }
